@@ -8,7 +8,7 @@ Homepage: https://github.com/CODeRUS/mozqmlui-harmattan
 
 Package: mozqmlui-harmattan
 Architecture: armel
-Depends: applauncherd-launcher, qmlmozbrowser
+Depends: applauncherd-launcher, qmlmozbrowser, libqtmozembed, embedlite-components, xulrunner
 Description: Fancy QML UI and launcher icon for QmlMozBrowser
  QmlMozBrowser is powered by Firefox Embedding/IPCLiteAPI.
 XSBC-Maemo-Display-Name: QmlMozBrowser
