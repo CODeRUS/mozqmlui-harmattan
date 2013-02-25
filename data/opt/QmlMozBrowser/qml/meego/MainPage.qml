@@ -7,27 +7,15 @@ FocusScope {
     objectName: "mainScope"
 
     anchors.fill: parent
-    property alias viewport: webViewport
 
     signal pageTitleChanged(string title)
 
     function load(address) {
         addressLine.text = address
-        viewport.child().load(address)
+        webViewport.child().load(address)
     }
 
-    Item {
-        id: debugg
-
-        function testt(val) {
-            console.log("viewport.enabled: " + viewport.enabled)
-            return val
-        }
-
-        property int test: viewport.enabled ? testt(1) : testt(0)
-    }
-
-    QmlMozContext { id: qMozContext }
+    QmlMozContext { id: context }
 
     AddressField {
         id: addressLine
@@ -76,6 +64,16 @@ FocusScope {
         Connections {
             target: webViewport.child()
             onViewInitialized: {
+                context.setPref("browser.ui.touch.left", 32);
+                context.setPref("browser.ui.touch.right", 32);
+                context.setPref("browser.ui.touch.top", 48);
+                context.setPref("browser.ui.touch.bottom", 16);
+                context.setPref("browser.ui.touch.weight.visited", 120);
+                webViewport.child().loadFrameScript("chrome://embedlite/content/embedhelper.js");
+                webViewport.child().addMessageListener("embed:alert");
+                webViewport.child().addMessageListener("embed:prompt");
+                webViewport.child().addMessageListener("embed:confirm");
+                webViewport.child().addMessageListener("embed:auth");
                 webViewport.child().addMessageListener("chrome:title")
                 webViewport.child().addMessageListener("context:info")
                 print("QML View Initialized")
@@ -219,15 +217,15 @@ FocusScope {
             navigation.visible = false
             contextMenu.visible = false
 
-            viewport.focus = true
+            webViewport.focus = true
         }
         
         onReleased: {
             if (!navigation.visible) {
-                viewport.enabled = true
-                viewport.focus = true;
+                webViewport.enabled = true
+                webViewport.focus = true;
 
-                if (viewport.child().contentRect.y == 0 && deltaY < - 20) {
+                if (webViewport.child().contentRect.y == 0 && deltaY < - 20) {
                         addressLine.anchors.topMargin = 0;
                 }
                 else  {
@@ -252,7 +250,7 @@ FocusScope {
 
             if (!longLocked && !contextMenu.visible) {
                 navigation.visible = true
-                viewport.enabled = false
+                webViewport.enabled = false
             }
         }
 
@@ -263,9 +261,9 @@ FocusScope {
                 longLocked = true
             }
 
-            if (viewport.child().contentRect.y == 0) {
+            if (webViewport.child().contentRect.y == 0) {
                 if (deltaY < 0) {
-                    viewport.enabled = false
+                    webViewport.enabled = false
                     if (edgeY == 0)
                         edgeY = mapped.y
 
@@ -275,7 +273,7 @@ FocusScope {
                     addressLine.anchors.topMargin = topDelta - addressLine.height;
                 }
                 else if (!longPressed && !navigation.visible) {
-                    viewport.enabled = true
+                    webViewport.enabled = true
                 }
             }
         }
@@ -287,7 +285,7 @@ FocusScope {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 5
         width: Math.min(parent.width, parent.height) - 10
-        context: qMozContext
+        context: context
         viewport: webViewport
     }
 
@@ -299,7 +297,7 @@ FocusScope {
         onContextMenuRequested: {
             console.log("context menu")
             contextMenu.visible = true
-            viewport.enabled = false
+            webViewport.enabled = false
             navigation.visible = false
         }
     }
@@ -320,7 +318,7 @@ FocusScope {
         iconSource: "../icons/plus.png"
 
         onClicked: {
-            qMozContext.newWindow()
+            context.newWindow()
             navigation.visible = false
         }
     }
