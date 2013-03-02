@@ -39,8 +39,7 @@ Item {
 
     property alias title: titleText.text
     property alias message: messageText.text
-    y: parent.height // off "screen"
-    anchors.horizontalCenter: parent.horizontalCenter
+
     default property alias __children: dynamicColumn.children
 
     property variant winid: 0
@@ -67,10 +66,32 @@ Item {
     Rectangle {
         id: dialogWindow
 
+        color: "#fefefe"
+
+        anchors.top: content.top
+        anchors.horizontalCenter: content.horizontalCenter
+        width: content.width
+        height: content.height + 10
+
+        border {
+            width: 1
+            color: "#cfcfcf"
+        }
+
+        smooth: true
+        radius: 5
+    }
+
+    Rectangle {
+        id: fancy
+
         color: "#efefef"
 
-        width: parent.width - 40
-        height: 250
+        anchors.fill: dialogWindow
+        anchors.topMargin: titleText.height
+        anchors.leftMargin: 3
+        anchors.rightMargin: 3
+        anchors.bottomMargin: 3
 
         border {
             width: 1
@@ -78,41 +99,36 @@ Item {
         }
 
         smooth: true
-        radius: 5
+        radius: 3
+    }
 
+    Column {
+        id: content
         anchors.centerIn: parent
+        width: Math.min(Math.min(parent.width, parent.height) - 10, 400)
+        spacing: 10
+
+        Text {
+            id: titleText
+            anchors.horizontalCenter: parent.horizontalCenter
+            font.pixelSize: 20
+            font.weight: Font.Bold
+            elide: Text.ElideRight
+        }
+
+        Text {
+            id: messageText
+            wrapMode: Text.WordWrap
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width - 20
+            font.pixelSize: 20
+        }
 
         Column {
-            id: content
-            anchors.centerIn: parent
-            anchors.fill: parent
-            anchors.margins: 10
+            id: dynamicColumn
             spacing: 5
-
-            Text {
-                id: titleText
-                anchors.horizontalCenter: parent.horizontalCenter
-                font.pixelSize: 20
-                font.weight: Font.Bold
-                elide: Text.ElideRight
-            }
-
-            Text {
-                id: messageText
-                width: parent.width
-                wrapMode: Text.WordWrap
-                font.pixelSize: 20
-            }
-
-            Column {
-                id: dynamicColumn
-                spacing: 5
-                anchors {
-                    margins: 10
-                    bottom: content.bottom
-                    horizontalCenter: content.horizontalCenter
-                }
-            }
+            anchors.margins: 10
+            anchors.horizontalCenter: content.horizontalCenter
         }
     }
 }

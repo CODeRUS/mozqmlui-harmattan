@@ -1,6 +1,6 @@
 import Qt 4.7
 import QtMozilla 1.0
-import QtQuick 1.1
+import QtQuick 1.0
 
 FocusScope {
     id: mainScope
@@ -15,18 +15,7 @@ FocusScope {
         webViewport.child().load(address)
     }
 
-    QmlMozContext { id: context }
-
-    AddressField {
-        id: addressLine
-        viewport: webViewport
-        anchors {
-            top: parent.top
-            left: parent.left
-            right: parent.right
-            topMargin: 0
-        }
-    }
+    QmlMozContext { id: mozContext }
 
     QmlMozView {
         id: webViewport
@@ -34,6 +23,7 @@ FocusScope {
         objectName: "webViewport"
         visible: true
         focus: true
+        enabled: !(alertDlg.visible || confirmDlg.visible || promptDlg.visible || authDlg.visible || overlay.visible || settingsPage.visible)
         property bool movingHorizontally: false
         property bool movingVertically: true
         property variant visibleArea: QtObject {
@@ -55,20 +45,16 @@ FocusScope {
             onTriggered: webViewport.scrollTimeout()
         }
 
-        anchors {
-            top: addressLine.bottom
-            left: parent.left
-            right: parent.right
-            bottom: parent.bottom
-        }
+        anchors.fill: parent
+
         Connections {
             target: webViewport.child()
             onViewInitialized: {
-                context.setPref("browser.ui.touch.left", 32);
-                context.setPref("browser.ui.touch.right", 32);
-                context.setPref("browser.ui.touch.top", 48);
-                context.setPref("browser.ui.touch.bottom", 16);
-                context.setPref("browser.ui.touch.weight.visited", 120);
+                mozContext.setPref("browser.ui.touch.left", 32);
+                mozContext.setPref("browser.ui.touch.right", 32);
+                mozContext.setPref("browser.ui.touch.top", 48);
+                mozContext.setPref("browser.ui.touch.bottom", 16);
+                mozContext.setPref("browser.ui.touch.weight.visited", 120);
                 webViewport.child().loadFrameScript("chrome://embedlite/content/embedhelper.js");
                 webViewport.child().addMessageListener("embed:alert");
                 webViewport.child().addMessageListener("embed:prompt");
@@ -80,6 +66,23 @@ FocusScope {
                 if (startURL.length != 0 && createParentID == 0) {
                     load(startURL)
                 }
+            }
+            onLoadingChanged: {
+                var isLoading = webViewport.child().loading
+                if (isLoading && !overlay.visible) {
+                    overlay.showAddressBar()
+                }
+                else if (!isLoading && overlay.visible && !navigation.visible && !contextMenu.visible && !settingsPage.visible) {
+                    overlay.hide()
+                }
+            }
+            onHandleLongTap: {
+                if ((point.y - navigation.height / 2) < addressLine.height)
+                    overlay.show(addressLine.height + navigation.height / 2)
+                else if ((point.y + navigation.height / 2) > mainScope.height)
+                    overlay.show(mainScope.height - navigation.height)
+                else
+                    overlay.show(point.y - navigation.height / 2)
             }
             onViewAreaChanged: {
                 var r = webViewport.child().contentRect
@@ -120,22 +123,18 @@ FocusScope {
             }
             onAlert: {
                 print("onAlert: title:" + data.title + ", msg:" + data.text + " winid:" + data.winid)
-                webViewport.enabled = false
                 alertDlg.show(data.title, data.text, data.winid)
             }
             onConfirm: {
                 print("onConfirm: title:" + data.title + ", data.text:" + data.text)
-                webViewport.enabled = false
                 confirmDlg.show(data.title, data.text, data.winid)
             }
             onPrompt: {
                 print("onPrompt: title:" + data.title + ", msg:" + data.text)
-                webViewport.enabled = false
                 promptDlg.show(data.title, data.text, data.defaultValue, data.winid)
             }
             onAuthRequired: {
                 print("onAuthRequired: title:" + data.title + ", msg:" + data.text + ", winid:" + data.winid)
-                webViewport.enabled = false
                 authDlg.show(data.title, data.text, data.defaultValue, data.winid)
             }
         }
@@ -148,7 +147,6 @@ FocusScope {
                                                          checkval: alertDlg.checkval,
                                                          accepted: alertDlg.accepted
                                                      })
-                webViewport.enabled = true
             }
         }
 
@@ -160,7 +158,6 @@ FocusScope {
                                                          checkval: confirmDlg.checkval,
                                                          accepted: confirmDlg.accepted
                                                      })
-                webViewport.enabled = true
             }
         }
 
@@ -173,7 +170,6 @@ FocusScope {
                                                          accepted: promptDlg.accepted,
                                                          promptvalue: promptDlg.prompttext
                                                      })
-                webViewport.enabled = true
             }
         }
 
@@ -187,7 +183,6 @@ FocusScope {
                                                          username: authDlg.username,
                                                          password: authDlg.password
                                                      })
-                webViewport.enabled = true
             }
         }
 
@@ -197,136 +192,128 @@ FocusScope {
         }
     }
 
-    MouseArea {
-        anchors.fill: webViewport
-        
-        property int mX: 0
-        property int mY: 0
-        property int edgeY: 0
-        property int deltaY: 0
-        property bool longPressed: false
-        property bool longLocked: false
+    Item {
+        id: overlay
+        anchors.fill: mainScope
+        visible: false
 
-        onPressed: {
-            addressLine.unfocusAddressBar()
-            var mapped = mapToItem(mainScope, mouse.x, mouse.y);
-            mY = mapped.y
-            mX = mapped.x
+        function show(posY) {
+            navigation.anchors.topMargin = posY
+            overlay.visible = true
+            contextMenu.visible = false
+            navigation.visible = true
+        }
 
-            navigation.contextInfoAvialable = false
+        function showAddressBar() {
             navigation.visible = false
             contextMenu.visible = false
-
-            webViewport.focus = true
-        }
-        
-        onReleased: {
-            if (!navigation.visible) {
-                webViewport.enabled = true
-                webViewport.focus = true;
-
-                if (webViewport.child().contentRect.y == 0 && deltaY < - 20) {
-                        addressLine.anchors.topMargin = 0;
-                }
-                else  {
-                    addressLine.anchors.topMargin = -addressLine.height
-                }
-            }
-
-            longPressed = false;
-            longLocked = false
-            edgeY = 0
+            overlay.visible = true
         }
 
-        onPressAndHold: {
-            longPressed = true
+        function hide() {
+            overlay.visible = false
+        }
 
-            var mapped = mapToItem(mainScope, mouse.x, mouse.y)
-            navigation.y = mapped.y - 150
-            if (navigation.y < 0)
-                navigation.y = 0
-            else if (navigation.y + navigation.height > parent.height)
-                navigation.y = parent.height - navigation.height
-
-            if (!longLocked && !contextMenu.visible) {
-                navigation.visible = true
-                webViewport.enabled = false
+        MouseArea {
+            anchors.fill: parent
+            onPressed: {
+                overlay.visible = false
             }
         }
 
-        onPositionChanged: {
-            var mapped = mapToItem(mainScope, mouse.x, mouse.y)
-            deltaY = mY - mapped.y
-            if (!longPressed && Math.abs(deltaY) > 20) {
-                longLocked = true
+        AddressField {
+            id: addressLine
+            viewport: webViewport
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+
+            onAccepted: {
+                overlay.hide()
+            }
+        }
+
+        OverlayContextMenu {
+            id: contextMenu
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 5
+            width: Math.min(parent.width, parent.height) - 10
+            context: mozContext
+
+            onSelected: {
+                overlay.hide()
+            }
+        }
+
+        OverlayNavigation {
+            id: navigation
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            viewport: webViewport
+
+            onContextMenuRequested: {
+                contextMenu.visible = true
+                navigation.visible = false
             }
 
-            if (webViewport.child().contentRect.y == 0) {
-                if (deltaY < 0) {
-                    webViewport.enabled = false
-                    if (edgeY == 0)
-                        edgeY = mapped.y
+            onSelected: {
+                overlay.hide()
+            }
+        }
 
-                    var topDelta = mapped.y - edgeY;
-                    if (topDelta > addressLine.height)
-                        topDelta = addressLine.height;
-                    addressLine.anchors.topMargin = topDelta - addressLine.height;
-                }
-                else if (!longPressed && !navigation.visible) {
-                    webViewport.enabled = true
-                }
+        OverlayButton {
+            id: newPage
+
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.topMargin: addressLine.height + 10
+
+            width: 100
+            height: 100
+
+            visible: navigation.visible
+
+            iconSource: "../icons/plus.png"
+
+            onClicked: {
+                mozContext.newWindow()
+                overlay.hide()
+            }
+        }
+
+        OverlayButton {
+            id: settings
+
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.rightMargin: 10
+            anchors.topMargin: addressLine.height + 10
+
+            width: 100
+            height: 100
+
+            visible: navigation.visible
+
+            iconSource: "../icons/settings.png"
+
+            onClicked: {
+                overlay.hide()
+                settingsPage.show()
             }
         }
     }
 
-    OverlayContextMenu {
-        id: contextMenu
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 5
-        width: Math.min(parent.width, parent.height) - 10
-        context: context
-        viewport: webViewport
-    }
-
-    OverlayNavigation {
-        id: navigation
-        anchors.horizontalCenter: parent.horizontalCenter
-        viewport: webViewport
-
-        onContextMenuRequested: {
-            console.log("context menu")
-            contextMenu.visible = true
-            webViewport.enabled = false
-            navigation.visible = false
-        }
-    }
-
-    OverlayButton {
-        id: newPage
-
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.leftMargin: 10
-        anchors.bottomMargin: 10
-
-        width: 100
-        height: 100
-
-        visible: navigation.visible
-
-        iconSource: "../icons/plus.png"
-
-        onClicked: {
-            context.newWindow()
-            navigation.visible = false
-        }
+    Settings {
+        id: settingsPage
+        anchors.fill: parent
+        context: mozContext
     }
 
     Keys.onPressed: {
         if (((event.modifiers & Qt.ControlModifier) && event.key == Qt.Key_L)
                 || event.key == Qt.key_F6) {
-            console.log("Focus address bar")
             addressLine.focusAddressBar()
             event.accepted = true
         }
