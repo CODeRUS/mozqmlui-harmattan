@@ -1,4 +1,10 @@
-mozqmlui-harmattan (0.1) unstable; urgency=low
+mozqmlui-harmattan (0.1.1) unstable; urgency=low
+
+  * Overlay UI fixies and improvements
+
+ -- coderus <coderusinbox[at]gmail[dot]com>  Wed, 20 Feb 2012 21:38:11 +0600
+
+ mozqmlui-harmattan (0.1) unstable; urgency=low
 
   * Initial Release.
 
